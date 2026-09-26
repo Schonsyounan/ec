@@ -137,6 +137,7 @@ img{display:block;max-width:100%}
 .product:hover .product-image img{transform:scale(1.035)}
 .product-info{padding:17px 2px 5px}
 .product-name{font-size:13px;margin-bottom:7px}
+.product-copy{font-size:11px;color:#806e58;line-height:1.7;margin-bottom:9px}
 .product-price{font-size:12px;color:#715b43}
 .product-tag{font-size:9px;letter-spacing:.14em;color:var(--brown);margin-bottom:8px}
 
@@ -196,8 +197,16 @@ img{display:block;max-width:100%}
   width:min(880px,100%);max-height:92vh;overflow:auto;
   background:var(--cream);display:grid;grid-template-columns:1fr 1fr;
 }
-.modal-image{background:white;min-height:520px}
+.modal-image{background:white;min-height:520px;position:relative;overflow:hidden}
 .modal-image img{width:100%;height:100%;object-fit:cover}
+.product-slider{position:relative;width:100%;height:100%;min-height:520px;overflow:hidden}
+.product-slider-track{display:flex;width:200%;height:100%;transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+.product-slide{width:50%;height:100%;flex:0 0 50%;object-fit:cover}
+.slider-arrow{position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border:1px solid rgba(110,74,43,.25);border-radius:50%;background:rgba(255,253,248,.85);cursor:pointer;font-size:20px;z-index:2}
+.slider-arrow.prev{left:14px}.slider-arrow.next{right:14px}
+.slider-dots{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:7px;z-index:2}
+.slider-dot{width:6px;height:6px;border-radius:50%;border:0;background:rgba(110,74,43,.28);padding:0;cursor:pointer}
+.slider-dot.active{background:var(--brown)}
 .modal-info{padding:48px 42px;position:relative}
 .modal-close{position:absolute;right:20px;top:16px;border:0;background:none;font-size:24px;cursor:pointer}
 .modal-name{font-family:Georgia,serif;font-size:36px;font-weight:400;margin:20px 0 8px}
@@ -218,6 +227,11 @@ img{display:block;max-width:100%}
 .notice{font-size:10px;color:#806e58;line-height:1.7;margin-top:12px}
 
 @media(max-width:800px){
+  .products{grid-template-columns:repeat(2,1fr);gap:18px}
+  .modal-card{grid-template-columns:1fr;max-height:94vh}
+  .modal-image,.product-slider{min-height:58vh;max-height:58vh}
+  .modal-info{padding:32px 25px}
+  .modal-name{font-size:28px}
   .header{height:64px;padding:0 20px}
   .nav{display:none}
   .hero{grid-template-columns:1fr}
@@ -285,19 +299,29 @@ img{display:block;max-width:100%}
       <div class="kicker">Collection 01</div>
       <h2>New Arrival</h2>
     </div>
-    <div class="section-note">01 ITEM / SIZE S — XL</div>
+    <div class="section-note">05 ITEMS / SIZE S — XL</div>
   </div>
 
   <div class="products">
-    <article class="product" onclick="openProduct()">
-      <div class="product-image">
-        <img src="surf.png" alt="Schön! Pocket Tee">
-      </div>
-      <div class="product-info">
-        <div class="product-tag">NEW ARRIVAL</div>
-        <div class="product-name">Schön! Flower Surf Tee</div>
-        <div class="product-price">¥3,500 <small>(tax included)</small></div>
-      </div>
+    <article class="product" onclick="openProduct(0)">
+      <div class="product-image"><img src="surf.png" alt="HANABO #01 - SEED"></div>
+      <div class="product-info"><div class="product-tag">NEW ARRIVAL</div><div class="product-name">HANABO #01 - SEED</div><div class="product-copy">いつもの白Tに、ちょっとだけ遊び心を。</div><div class="product-price">¥3,500 <small>(tax included)</small></div></div>
+    </article>
+    <article class="product" onclick="openProduct(1)">
+      <div class="product-image"><img src="B.png" alt="HANABO tee #2 - SURF"></div>
+      <div class="product-info"><div class="product-tag">NEW ARRIVAL</div><div class="product-name">HANABO tee #2 - SURF</div><div class="product-copy">人生、だいたい波まかせ。</div><div class="product-price">¥3,500 <small>(tax included)</small></div></div>
+    </article>
+    <article class="product" onclick="openProduct(2)">
+      <div class="product-image"><img src="C.png" alt="HANABO tee #3 - FLOAT"></div>
+      <div class="product-info"><div class="product-tag">NEW ARRIVAL</div><div class="product-name">HANABO tee #3 - FLOAT</div><div class="product-copy">take it easy. 気楽に、いこう</div><div class="product-price">¥3,500 <small>(tax included)</small></div></div>
+    </article>
+    <article class="product" onclick="openProduct(3)">
+      <div class="product-image"><img src="D.png" alt="HANABO tee #4 - THULA"></div>
+      <div class="product-info"><div class="product-tag">NEW ARRIVAL</div><div class="product-name">HANABO tee #4 - THULA</div><div class="product-copy">ゆらり、咲く</div><div class="product-price">¥3,500 <small>(tax included)</small></div></div>
+    </article>
+    <article class="product" onclick="openProduct(4)">
+      <div class="product-image"><img src="E.png" alt="HANABO tee #5 - CHILL"></div>
+      <div class="product-info"><div class="product-tag">NEW ARRIVAL</div><div class="product-name">HANABO tee #5 - CHILL</div><div class="product-copy">今日は、何もしないが予定</div><div class="product-price">¥3,500 <small>(tax included)</small></div></div>
     </article>
   </div>
 </section>
@@ -350,12 +374,24 @@ img{display:block;max-width:100%}
 <div class="modal" id="productModal" onclick="closeProduct(event)">
   <div class="modal-card" onclick="event.stopPropagation()">
     <div class="modal-image">
-      <img src="surf.png" alt="Schön! Flower Surf Tee">
+      <div class="product-slider" id="productSlider">
+        <div class="product-slider-track" id="productSliderTrack">
+          <img class="product-slide" id="productImage1" src="surf.png" alt="">
+          <img class="product-slide" id="productImage2" src="surf2.png" alt="">
+        </div>
+        <button class="slider-arrow prev" onclick="changeSlide(-1)" aria-label="前の画像">‹</button>
+        <button class="slider-arrow next" onclick="changeSlide(1)" aria-label="次の画像">›</button>
+        <div class="slider-dots">
+          <button class="slider-dot active" id="dot1" onclick="goSlide(0)" aria-label="1枚目"></button>
+          <button class="slider-dot" id="dot2" onclick="goSlide(1)" aria-label="2枚目"></button>
+        </div>
+      </div>
     </div>
     <div class="modal-info">
       <button class="modal-close" onclick="closeProduct()">×</button>
-      <div class="kicker">Schön! / Collection 01</div>
-      <div class="modal-name">Flower Surf Tee</div>
+      <div class="kicker">Schön! / HANABO COLLECTION</div>
+      <div class="modal-name" id="modalName">HANABO #01 - SEED</div>
+      <div class="modal-description" id="modalDescription">いつもの白Tに、ちょっとだけ遊び心を。</div>
       <div class="modal-price">¥3,500 (tax included)</div>
 
       <div class="option-label">SIZE</div>
@@ -373,16 +409,31 @@ img{display:block;max-width:100%}
 </div>
 
 <script>
-const PRODUCT = {
-  name: "Schön! Flower Surf Tee",
-  price: 3500,
-  image: "surf.png"
-};
+const PRODUCTS = [
+  {name:"HANABO #01 - SEED", description:"いつもの白Tに、ちょっとだけ遊び心を。", price:3500, image:"surf.png", image2:"surf2.png"},
+  {name:"HANABO tee #2 - SURF", description:"人生、だいたい波まかせ。", price:3500, image:"B.png", image2:"B2.png"},
+  {name:"HANABO tee #3 - FLOAT", description:"take it easy. 気楽に、いこう", price:3500, image:"C.png", image2:"C2.png"},
+  {name:"HANABO tee #4 - THULA", description:"ゆらり、咲く", price:3500, image:"D.png", image2:"D2.png"},
+  {name:"HANABO tee #5 - CHILL", description:"今日は、何もしないが予定", price:3500, image:"E.png", image2:"E2.png"}
+];
 
+let currentProduct = PRODUCTS[0];
+let currentSlide = 0;
 let selectedSize = null;
 let cart = JSON.parse(localStorage.getItem("schonCart") || "[]");
 
-function openProduct(){
+function openProduct(index=0){
+  currentProduct = PRODUCTS[index];
+  currentSlide = 0;
+  selectedSize = null;
+  document.getElementById("productImage1").src = currentProduct.image;
+  document.getElementById("productImage2").src = currentProduct.image2;
+  document.getElementById("productImage1").alt = currentProduct.name;
+  document.getElementById("productImage2").alt = currentProduct.name + " color variation";
+  document.getElementById("modalName").textContent = currentProduct.name;
+  document.getElementById("modalDescription").textContent = currentProduct.description;
+  document.querySelectorAll(".size-btn").forEach(b=>b.classList.remove("active"));
+  updateSlider();
   document.getElementById("productModal").classList.add("open");
   document.body.style.overflow="hidden";
 }
@@ -390,6 +441,19 @@ function closeProduct(e){
   if(e && e.target !== document.getElementById("productModal")) return;
   document.getElementById("productModal").classList.remove("open");
   document.body.style.overflow="";
+}
+function updateSlider(){
+  document.getElementById("productSliderTrack").style.transform = `translateX(-${currentSlide*50}%)`;
+  document.getElementById("dot1").classList.toggle("active",currentSlide===0);
+  document.getElementById("dot2").classList.toggle("active",currentSlide===1);
+}
+function changeSlide(direction){
+  currentSlide = currentSlide === 0 && direction > 0 ? 1 : currentSlide === 1 && direction < 0 ? 0 : currentSlide;
+  updateSlider();
+}
+function goSlide(index){
+  currentSlide=index;
+  updateSlider();
 }
 function selectSize(btn,size){
   document.querySelectorAll(".size-btn").forEach(b=>b.classList.remove("active"));
@@ -401,7 +465,7 @@ function addToCart(){
     alert("サイズを選択してください。");
     return;
   }
-  cart.push({name:PRODUCT.name,price:PRODUCT.price,size:selectedSize,image:PRODUCT.image});
+  cart.push({name:currentProduct.name,price:currentProduct.price,size:selectedSize,image:currentProduct.image});
   localStorage.setItem("schonCart",JSON.stringify(cart));
   selectedSize=null;
   document.querySelectorAll(".size-btn").forEach(b=>b.classList.remove("active"));
@@ -452,7 +516,7 @@ function checkout(){
     alert("カートに商品がありません。");
     return;
   }
-  alert("現在はカート機能まで実装しています。\n実際の決済にはStripe / Shopifyなどの決済連携が必要です。");
+  alert("決済機能は後から追加できます。現在はカートまで実装しています。");
 }
 updateCart();
 </script>
