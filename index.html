@@ -187,6 +187,24 @@ img{display:block;max-width:100%}
 }
 .checkout:hover{background:var(--deep)}
 
+.coupon-box{
+  margin-bottom:22px;padding-bottom:20px;border-bottom:1px solid var(--line);
+}
+.coupon-label{font-size:10px;letter-spacing:.14em;margin-bottom:8px;color:#806e58}
+.coupon-row{display:flex;gap:8px}
+.coupon-row input{
+  flex:1;min-width:0;padding:11px 12px;border:1px solid var(--line);
+  background:rgba(255,253,248,.7);color:var(--deep);outline:none;
+  font-size:12px;
+}
+.coupon-row input:focus{border-color:rgba(110,74,43,.55)}
+.coupon-row button{
+  padding:11px 14px;border:1px solid var(--brown);background:var(--brown);
+  color:#fff;cursor:pointer;font-size:10px;letter-spacing:.1em;
+}
+.coupon-message{min-height:16px;margin-top:7px;font-size:10px;color:#806e58}
+.checkout-note{text-align:center;margin-top:10px;font-size:9px;color:#8a7864}
+
 .modal{
   position:fixed;inset:0;z-index:60;background:rgba(35,26,17,.42);
   display:grid;place-items:center;padding:20px;
@@ -364,10 +382,19 @@ img{display:block;max-width:100%}
   </div>
   <div class="cart-items" id="cartItems"></div>
   <div class="cart-footer">
+    <div class="coupon-box">
+      <div class="coupon-label">COUPON CODE</div>
+      <div class="coupon-row">
+        <input id="couponCode" type="text" placeholder="クーポンコード" autocomplete="off">
+        <button type="button" onclick="applyCoupon()">APPLY</button>
+      </div>
+      <div id="couponMessage" class="coupon-message"></div>
+    </div>
     <div class="total"><span>SUBTOTAL</span><strong id="cartSubtotal">¥0</strong></div>
-    <div class="total"><span>SHIPPING</span><strong>¥1,000</strong></div>
+    <div class="total"><span>SHIPPING</span><strong id="cartShipping">¥1,000</strong></div>
     <div class="total"><span>TOTAL</span><strong id="cartTotal">¥1,000</strong></div>
     <button class="checkout" onclick="checkout()">CHECKOUT</button>
+    <div class="checkout-note">決済はStripeの安全な決済ページで行われます。</div>
   </div>
 </aside>
 
@@ -417,9 +444,21 @@ const PRODUCTS = [
   {name:"HANABO tee #5 - CHILL", description:"今日は、何もしないが予定", price:3500, image:"E.png", image2:"E2.png"}
 ];
 
+/*
+ * Stripe Checkoutは秘密鍵をブラウザに置かず、
+ * 下記のサーバーエンドポイントでCheckout Sessionを作成します。
+ * worker.jsをCloudflare Workers等へデプロイ後、このURLを変更してください。
+ */
+const STRIPE_CHECKOUT_ENDPOINT =
+  "https://YOUR-WORKER.workers.dev/create-checkout-session";
+
+const FREE_SHIPPING_COUPON = "shinshin77";
+const NORMAL_SHIPPING = 1000;
+
 let currentProduct = PRODUCTS[0];
 let currentSlide = 0;
 let selectedSize = null;
+let appliedCoupon = "";
 let cart = JSON.parse(localStorage.getItem("schonCart") || "[]");
 
 function openProduct(index=0){
@@ -443,12 +482,14 @@ function closeProduct(e){
   document.body.style.overflow="";
 }
 function updateSlider(){
-  document.getElementById("productSliderTrack").style.transform = `translateX(-${currentSlide*100}%)`;
+  document.getElementById("productSliderTrack").style.transform =
+    `translateX(-${currentSlide*100}%)`;
   document.getElementById("dot1").classList.toggle("active",currentSlide===0);
   document.getElementById("dot2").classList.toggle("active",currentSlide===1);
 }
 function changeSlide(direction){
-  currentSlide = currentSlide === 0 && direction > 0 ? 1 : currentSlide === 1 && direction < 0 ? 0 : currentSlide;
+  currentSlide = currentSlide === 0 && direction > 0 ? 1 :
+                 currentSlide === 1 && direction < 0 ? 0 : currentSlide;
   updateSlider();
 }
 function goSlide(index){
@@ -465,7 +506,12 @@ function addToCart(){
     alert("サイズを選択してください。");
     return;
   }
-  cart.push({name:currentProduct.name,price:currentProduct.price,size:selectedSize,image:currentProduct.image});
+  cart.push({
+    name:currentProduct.name,
+    price:currentProduct.price,
+    size:selectedSize,
+    image:currentProduct.image
+  });
   localStorage.setItem("schonCart",JSON.stringify(cart));
   selectedSize=null;
   document.querySelectorAll(".size-btn").forEach(b=>b.classList.remove("active"));
@@ -476,6 +522,7 @@ function addToCart(){
 function updateCart(){
   document.getElementById("cartCount").textContent=cart.length;
   const box=document.getElementById("cartItems");
+
   if(!cart.length){
     box.innerHTML='<div class="cart-empty">カートに商品はありません。</div>';
   }else{
@@ -484,17 +531,42 @@ function updateCart(){
         <img src="${item.image}" alt="">
         <div>
           <h3>${item.name}</h3>
-          <div class="cart-meta">SIZE / ${item.size}<br>¥${item.price.toLocaleString()}</div>
+          <div class="cart-meta">SIZE / ${item.size}<br>¥${Number(item.price).toLocaleString()}</div>
         </div>
         <button class="remove" onclick="removeItem(${i})">REMOVE</button>
       </div>
     `).join("");
   }
-  const subtotal=cart.reduce((sum,item)=>sum+item.price,0);
-  const shipping=cart.length ? 1000 : 0;
+
+  const subtotal=cart.reduce((sum,item)=>sum+Number(item.price),0);
+  const freeShipping = appliedCoupon === FREE_SHIPPING_COUPON && cart.length > 0;
+  const shipping = cart.length ? (freeShipping ? 0 : NORMAL_SHIPPING) : 0;
   const total=subtotal+shipping;
+
   document.getElementById("cartSubtotal").textContent="¥"+subtotal.toLocaleString();
+  document.getElementById("cartShipping").textContent=shipping===0 && cart.length ? "FREE" : "¥"+shipping.toLocaleString();
   document.getElementById("cartTotal").textContent="¥"+total.toLocaleString();
+}
+function applyCoupon(){
+  const input=document.getElementById("couponCode");
+  const message=document.getElementById("couponMessage");
+  const code=input.value.trim();
+
+  if(!code){
+    appliedCoupon="";
+    message.textContent="クーポンコードを入力してください。";
+    updateCart();
+    return;
+  }
+
+  if(code === FREE_SHIPPING_COUPON){
+    appliedCoupon=FREE_SHIPPING_COUPON;
+    message.textContent="クーポン適用：送料無料";
+  }else{
+    appliedCoupon="";
+    message.textContent="クーポンコードが正しくありません。";
+  }
+  updateCart();
 }
 function removeItem(i){
   cart.splice(i,1);
@@ -511,12 +583,52 @@ function closeCart(){
   document.getElementById("overlay").classList.remove("open");
   document.body.style.overflow="";
 }
-function checkout(){
+
+async function checkout(){
   if(!cart.length){
     alert("カートに商品がありません。");
     return;
   }
-  alert("決済機能は後から追加できます。現在はカートまで実装しています。");
+
+  if(STRIPE_CHECKOUT_ENDPOINT.includes("YOUR-WORKER")){
+    alert("Stripeの接続先がまだ設定されていません。worker.jsをデプロイ後、STRIPE_CHECKOUT_ENDPOINTを設定してください。");
+    return;
+  }
+
+  const button=document.querySelector(".checkout");
+  const originalText=button.textContent;
+  button.disabled=true;
+  button.textContent="CONNECTING...";
+
+  try{
+    const returnUrl=window.location.href.split("?")[0];
+
+    const response=await fetch(STRIPE_CHECKOUT_ENDPOINT,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        cart:cart.map(item=>({
+          name:item.name,
+          size:item.size
+        })),
+        coupon:appliedCoupon,
+        returnUrl:returnUrl
+      })
+    });
+
+    const data=await response.json();
+
+    if(!response.ok || !data.url){
+      throw new Error(data.error || "Stripe Checkoutの作成に失敗しました。");
+    }
+
+    window.location.href=data.url;
+  }catch(error){
+    console.error(error);
+    alert(error.message || "決済ページを開けませんでした。");
+    button.disabled=false;
+    button.textContent=originalText;
+  }
 }
 updateCart();
 </script>
