@@ -748,5 +748,98 @@ async function checkout(){
 }
 updateCart();
 </script>
+  <div id="paymentSection" style="display:none; margin:20px 0;">
+  <h3>お支払い</h3>
+
+  <div id="card-container"></div>
+
+  <button id="card-button" type="button">
+    支払う
+  </button>
+
+  <div id="payment-status"></div>
+</div>
+  <script>
+async function startSquareCheckout() {
+  if (!cart.length) {
+    alert("カートに商品がありません。");
+    return;
+  }
+
+  const paymentSection = document.getElementById("paymentSection");
+  paymentSection.style.display = "block";
+
+  try {
+    const payments = Square.payments(
+      SQUARE_APPLICATION_ID,
+      SQUARE_LOCATION_ID
+    );
+
+    const card = await payments.card();
+
+    await card.attach("#card-container");
+
+    document.getElementById("card-button").onclick = async () => {
+      const status = document.getElementById("payment-status");
+
+      try {
+        status.textContent = "決済処理中です...";
+
+        const result = await card.tokenize();
+
+        if (result.status !== "OK") {
+          console.error(result);
+          status.textContent = "カード情報を確認してください。";
+          return;
+        }
+
+        const sourceId = result.token;
+
+        const subtotal = cart.reduce(
+          (sum, item) => sum + item.price,
+          0
+        );
+
+        const shipping = cart.length ? 1000 : 0;
+        const total = subtotal + shipping;
+
+        const response = await fetch("/api/create-payment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            sourceId: sourceId,
+            amount: total
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          console.error(data);
+          status.textContent = "決済に失敗しました。";
+          return;
+        }
+
+        status.textContent = "決済が完了しました！";
+
+        localStorage.removeItem("schonCart");
+        cart = [];
+        updateCart();
+
+      } catch (error) {
+        console.error(error);
+        status.textContent = "決済中にエラーが発生しました。";
+      }
+    };
+
+  } catch (error) {
+    console.error(error);
+    document.getElementById("payment-status").textContent =
+      "決済画面の読み込みに失敗しました。";
+  }
+}
+</script>
 </body>
 </html>
