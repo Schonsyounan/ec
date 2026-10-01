@@ -274,6 +274,113 @@ img{display:block;max-width:100%}
   .hero h1{font-size:72px}
 }
 </style>
+  <script src="https://sandbox.web.squarecdn.com/v1/square.js"></script>
+  <script>
+const SQUARE_APPLICATION_ID = "sandbox-sq0idb-zTaNJUFqUwD9Nhk9FGelyA";
+const SQUARE_LOCATION_ID = "1L58553AS1JWAB5944";
+
+let squarePayments;
+let squareCard;
+
+async function initializeSquare() {
+  try {
+    squarePayments = Square.payments(
+      SQUARE_APPLICATION_ID,
+      SQUARE_LOCATION_ID
+    );
+
+    squareCard = await squarePayments.card();
+
+    await squareCard.attach("#card-container");
+
+  } catch (error) {
+    console.error(error);
+    document.getElementById("payment-status").textContent =
+      "決済画面の読み込みに失敗しました。";
+  }
+}
+
+async function startSquareCheckout() {
+  if (!cart.length) {
+    alert("カートに商品がありません。");
+    return;
+  }
+
+  const total = cart.reduce((sum, item) => sum + item.price, 0);
+
+  const paymentSection = document.getElementById("paymentSection");
+
+  paymentSection.style.display = "block";
+
+  if (!squareCard) {
+    await initializeSquare();
+  }
+
+  paymentSection.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+}
+
+async function payWithSquare() {
+  const status = document.getElementById("payment-status");
+
+  try {
+    status.textContent = "決済処理中です...";
+
+    const result = await squareCard.tokenize();
+
+    if (result.status !== "OK") {
+      console.error(result);
+      status.textContent = "カード情報を確認してください。";
+      return;
+    }
+
+    const sourceId = result.token;
+
+    const total = cart.reduce(
+      (sum, item) => sum + item.price,
+      0
+    );
+
+    const response = await fetch("/api/create-payment", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sourceId: sourceId,
+        amount: total
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error(data);
+      status.textContent = "決済に失敗しました。";
+      return;
+    }
+
+    status.textContent = "決済が完了しました！";
+
+    localStorage.removeItem("schonCart");
+    cart = [];
+
+    updateCart();
+
+  } catch (error) {
+    console.error(error);
+    status.textContent = "決済中にエラーが発生しました。";
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document
+    .getElementById("card-button")
+    .addEventListener("click", payWithSquare);
+});
+</script>
 </head>
 
 <body>
@@ -393,6 +500,15 @@ img{display:block;max-width:100%}
     <div class="total"><span>SUBTOTAL</span><strong id="cartSubtotal">¥0</strong></div>
     <div class="total"><span>SHIPPING</span><strong id="cartShipping">¥1,000</strong></div>
     <div class="total"><span>TOTAL</span><strong id="cartTotal">¥1,000</strong></div>
+    <div id="paymentSection" style="display:none; margin-top:20px;">
+  <div id="card-container"></div>
+
+  <button id="card-button" type="button">
+    支払う
+  </button>
+
+  <div id="payment-status"></div>
+</div>
     <button class="checkout" onclick="checkout()">CHECKOUT</button>
     <div class="checkout-note">決済はStripeの安全な決済ページで行われます。</div>
   </div>
