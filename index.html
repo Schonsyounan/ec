@@ -407,20 +407,6 @@ const SQUARE_LOCATION_ID = "1L58553AS1JWAB5944";
 
   <div id="payment-status"></div>
 </div>
-
-    <div id="orderComplete" style="display:none; margin-top:20px; padding:24px; border:1px solid #e5e7eb; border-radius:18px; background:#fff; text-align:center;">
-      <div style="font-size:42px; line-height:1; margin-bottom:12px;">✓</div>
-      <h3 style="margin:0 0 8px; font-size:22px;">ご注文ありがとうございます！</h3>
-      <p style="margin:0 0 18px; color:#666; font-size:14px;">決済が正常に完了しました。</p>
-      <div style="background:#f8f8f8; border-radius:12px; padding:14px; margin-bottom:16px;">
-        <div style="font-size:12px; color:#777; margin-bottom:5px;">ORDER NUMBER</div>
-        <strong id="orderNumber" style="font-size:18px; letter-spacing:1px;"></strong>
-      </div>
-      <div id="orderSummary" style="text-align:left; font-size:13px; line-height:1.8; margin-bottom:18px;"></div>
-      <button type="button" onclick="closeCart()" style="width:100%; padding:14px; border:0; border-radius:10px; background:#111; color:#fff; font-weight:700; cursor:pointer;">
-        SHOPへ戻る
-      </button>
-    </div>
     <button class="checkout" onclick="startSquareCheckout()">CHECKOUT</button>
     <div class="checkout-note">Squareの安全な決済フォームでお支払いいただけます。</div>
   </div>
@@ -646,91 +632,44 @@ async function payWithSquare(){
   const button=document.getElementById("card-button");
   if(!squareCardReady || !squareCard){ status.textContent="先にCHECKOUTを押してカード画面を表示してください。"; return; }
   if(!cart.length){ status.textContent="カートに商品がありません。"; return; }
-
-  button.disabled=true;
-  status.textContent="決済処理中です...";
-
+  button.disabled=true; status.textContent="決済処理中です...";
   try{
     const result=await squareCard.tokenize();
-    if(result.status!=="OK"){
-      console.error("Tokenize:",result);
-      status.textContent="カード情報を確認してください。";
-      return;
-    }
-
-    const purchasedItems=cart.map(item=>({
-      name:item.name||"",
-      price:Number(item.price||0),
-      size:item.size||"",
-      quantity:Number(item.quantity||1),
-      image:item.image||""
-    }));
-
-    const subtotal=purchasedItems.reduce((sum,item)=>sum+item.price*item.quantity,0);
+    if(result.status!=="OK"){ console.error("Tokenize:",result); status.textContent="カード情報を確認してください。"; return; }
+    const subtotal=cart.reduce((sum,item)=>sum+Number(item.price||0),0);
     const shipping=cart.length?(appliedCoupon===FREE_SHIPPING_COUPON?0:NORMAL_SHIPPING):0;
-    const total=subtotal+shipping;
-
-    const response=await fetch("/api/create-payment",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        sourceId:result.token,
-        amount:total,
-        items:purchasedItems,
-        shipping,
-        coupon:appliedCoupon||""
-      })
-    });
-
+    const response=await fetch("/api/create-payment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sourceId:result.token,amount:subtotal+shipping})});
     const data=await response.json().catch(()=>({error:"サーバーからJSON応答がありません"}));
     console.log("Payment API:",data);
-
-    if(!response.ok){
-      throw new Error(typeof data.error==="string"?data.error:JSON.stringify(data.error||data));
-    }
-
-    const orderId=data.order?.orderId || ("SCH-"+Date.now().toString(36).toUpperCase());
-
-    document.getElementById("orderNumber").textContent=orderId;
-
-    const summary=document.getElementById("orderSummary");
-    summary.innerHTML=
-      purchasedItems.map(item=>
-        `<div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #eee;padding:6px 0;">`+
-        `<span>${escapeHtml(item.name)}${item.size?`（${escapeHtml(item.size)}）`:""}${item.quantity>1?` × ${item.quantity}`:""}</span>`+
-        `<strong>¥${(item.price*item.quantity).toLocaleString()}</strong>`+
-        `</div>`
-      ).join("")+
-      `<div style="display:flex;justify-content:space-between;padding-top:10px;"><span>送料</span><strong>¥${shipping.toLocaleString()}</strong></div>`+
-      `<div style="display:flex;justify-content:space-between;font-size:16px;padding-top:8px;"><span>合計</span><strong>¥${total.toLocaleString()}</strong></div>`;
-
-    document.getElementById("paymentSection").style.setProperty("display","none","important");
-    document.getElementById("payment-status").style.setProperty("display","none","important");
-    document.querySelector(".checkout")?.style.setProperty("display","none");
-    document.querySelector(".checkout-note")?.style.setProperty("display","none");
-    document.querySelector(".coupon-box")?.style.setProperty("display","none");
-    document.querySelector(".cart-footer .total")?.style.setProperty("display","none");
-    document.querySelectorAll(".cart-footer .total").forEach(el=>el.style.display="none");
-    document.getElementById("orderComplete").style.setProperty("display","block","important");
-    document.getElementById("orderComplete").scrollIntoView({behavior:"smooth",block:"center"});
-
-    localStorage.removeItem("schonCart");
-    cart=[];
-    appliedCoupon="";
-    updateCart();
-
-  }catch(error){
-    console.error("Payment error:",error);
-    status.textContent="決済失敗："+(error.message||"詳細はConsoleを確認してください。");
-  }finally{
-    button.disabled=false;
-  }
-}
-
-function escapeHtml(value){
-  return String(value).replace(/[&<>"']/g,function(char){
-    return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[char];
-  });
+    if(!response.ok){ throw new Error(typeof data.error==="string"?data.error:JSON.stringify(data.error||data)); }
+    const order = data.order || {};
+    const orderNumber = order.orderId || "SCH-ORDER";
+    const itemsHtml = (order.items || cart).map(item => `
+      <div class="flex justify-between gap-4 py-3 border-b border-slate-100">
+        <div><p class="font-bold text-sm">${item.name || ""}</p><p class="text-xs text-slate-500 mt-1">サイズ：${item.size || "-"}</p></div>
+        <p class="font-bold">¥${Number(item.price || 0).toLocaleString()}</p>
+      </div>`).join("");
+    const totalAmount = Number(order.amount || subtotal + shipping);
+    const paymentSection = document.getElementById("paymentSection");
+    paymentSection.innerHTML = `
+      <div class="max-w-xl mx-auto bg-white rounded-3xl shadow-xl border border-slate-100 p-6 sm:p-10 text-center">
+        <div class="w-16 h-16 mx-auto mb-5 rounded-full bg-green-100 flex items-center justify-center"><i class="fa-solid fa-check text-3xl text-green-600"></i></div>
+        <h2 class="text-2xl sm:text-3xl font-black text-slate-900 mb-3">ご注文ありがとうございます！</h2>
+        <p class="text-sm text-slate-500 mb-8">決済が正常に完了しました。</p>
+        <div class="bg-slate-50 rounded-2xl p-5 text-left mb-6">
+          <div class="mb-5"><p class="text-xs text-slate-400 font-bold mb-1">ORDER NUMBER</p><p class="text-lg font-black text-slate-900">${orderNumber}</p></div>
+          <p class="text-sm font-bold text-slate-700 mb-2">ご注文内容</p>
+          ${itemsHtml}
+          <div class="flex justify-between py-3 text-sm"><span>送料</span><span>¥${Number(order.shipping || shipping).toLocaleString()}</span></div>
+          <div class="border-t border-slate-200 pt-4 mt-2 flex justify-between"><span class="font-black">お支払い合計</span><span class="text-xl font-black">¥${totalAmount.toLocaleString()}</span></div>
+        </div>
+        <p class="text-xs text-slate-500 leading-relaxed mb-6">ご注文を受け付けました。<br>商品の発送まで今しばらくお待ちください。</p>
+        <button type="button" onclick="location.reload()" class="w-full bg-slate-900 hover:bg-slate-700 text-white py-4 rounded-xl font-bold transition">SHOPに戻る</button>
+      </div>`;
+    localStorage.removeItem("schonCart"); cart=[]; appliedCoupon="";
+    paymentSection.scrollIntoView({behavior:"smooth",block:"start"});
+  }catch(error){ console.error("Payment error:",error); status.textContent="決済失敗："+(error.message||"詳細はConsoleを確認してください。"); }
+  finally{ button.disabled=false; }
 }
 
 document.getElementById("card-button")?.addEventListener("click",payWithSquare);
