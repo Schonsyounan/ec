@@ -704,13 +704,15 @@ async function payWithSquare(){
       `<div style="display:flex;justify-content:space-between;padding-top:10px;"><span>送料</span><strong>¥${shipping.toLocaleString()}</strong></div>`+
       `<div style="display:flex;justify-content:space-between;font-size:16px;padding-top:8px;"><span>合計</span><strong>¥${total.toLocaleString()}</strong></div>`;
 
-    document.getElementById("paymentSection").style.display="none";
+    document.getElementById("paymentSection").style.setProperty("display","none","important");
+    document.getElementById("payment-status").style.setProperty("display","none","important");
     document.querySelector(".checkout")?.style.setProperty("display","none");
     document.querySelector(".checkout-note")?.style.setProperty("display","none");
     document.querySelector(".coupon-box")?.style.setProperty("display","none");
     document.querySelector(".cart-footer .total")?.style.setProperty("display","none");
     document.querySelectorAll(".cart-footer .total").forEach(el=>el.style.display="none");
-    document.getElementById("orderComplete").style.display="block";
+    document.getElementById("orderComplete").style.setProperty("display","block","important");
+    document.getElementById("orderComplete").scrollIntoView({behavior:"smooth",block:"center"});
 
     localStorage.removeItem("schonCart");
     cart=[];
