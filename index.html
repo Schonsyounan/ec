@@ -278,108 +278,6 @@ img{display:block;max-width:100%}
   <script>
 const SQUARE_APPLICATION_ID = "sandbox-sq0idb-zTaNJUFqUwD9Nhk9FGelyA";
 const SQUARE_LOCATION_ID = "1L58553AS1JWAB5944";
-
-let squarePayments;
-let squareCard;
-
-async function initializeSquare() {
-  try {
-    squarePayments = Square.payments(
-      SQUARE_APPLICATION_ID,
-      SQUARE_LOCATION_ID
-    );
-
-    squareCard = await squarePayments.card();
-
-    await squareCard.attach("#card-container");
-
-  } catch (error) {
-    console.error(error);
-    document.getElementById("payment-status").textContent =
-      "決済画面の読み込みに失敗しました。";
-  }
-}
-
-async function startSquareCheckout() {
-  if (!cart.length) {
-    alert("カートに商品がありません。");
-    return;
-  }
-
-  const total = cart.reduce((sum, item) => sum + item.price, 0);
-
-  const paymentSection = document.getElementById("paymentSection");
-
-  paymentSection.style.display = "block";
-
-  if (!squareCard) {
-    await initializeSquare();
-  }
-
-  paymentSection.scrollIntoView({
-    behavior: "smooth",
-    block: "center"
-  });
-}
-
-
-  const status = document.getElementById("payment-status");
-
-  try {
-    status.textContent = "決済処理中です...";
-
-    const result = await squareCard.tokenize();
-
-    if (result.status !== "OK") {
-      console.error(result);
-      status.textContent = "カード情報を確認してください。";
-      return;
-    }
-
-    const sourceId = result.token;
-
-    const total = cart.reduce(
-      (sum, item) => sum + item.price,
-      0
-    );
-
-    const response = await fetch("/api/create-payment", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        sourceId: sourceId,
-        amount: total
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error(data);
-      status.textContent = "決済に失敗しました。";
-      return;
-    }
-
-    status.textContent = "決済が完了しました！";
-
-    localStorage.removeItem("schonCart");
-    cart = [];
-
-    updateCart();
-
-  } catch (error) {
-    console.error(error);
-    status.textContent = "決済中にエラーが発生しました。";
-  }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  document
-    .getElementById("card-button")
-    .addEventListener("click", payWithSquare);
-});
 </script>
 </head>
 
@@ -510,7 +408,7 @@ document.addEventListener("DOMContentLoaded", () => {
   <div id="payment-status"></div>
 </div>
     <button class="checkout" onclick="startSquareCheckout()">CHECKOUT</button>
-    <div class="checkout-note">決済はStripeの安全な決済ページで行われます。</div>
+    <div class="checkout-note">Squareの安全な決済フォームでお支払いいただけます。</div>
   </div>
 </aside>
 
@@ -565,8 +463,7 @@ const PRODUCTS = [
  * 下記のサーバーエンドポイントでCheckout Sessionを作成します。
  * worker.jsをCloudflare Workers等へデプロイ後、このURLを変更してください。
  */
-const STRIPE_CHECKOUT_ENDPOINT =
-  "https://YOUR-WORKER.workers.dev/create-checkout-session";
+
 
 const FREE_SHIPPING_COUPON = "shinshin77";
 const NORMAL_SHIPPING = 1000;
@@ -700,146 +597,59 @@ function closeCart(){
   document.body.style.overflow="";
 }
 
-async function checkout(){
-  if(!cart.length){
-    alert("カートに商品がありません。");
-    return;
-  }
+let squareCard = null;
+let squareCardReady = false;
+let squareInitPromise = null;
 
-  if(STRIPE_CHECKOUT_ENDPOINT.includes("YOUR-WORKER")){
-    alert("Stripeの接続先がまだ設定されていません。worker.jsをデプロイ後、STRIPE_CHECKOUT_ENDPOINTを設定してください。");
-    return;
-  }
-
-  const button=document.querySelector(".checkout");
-  const originalText=button.textContent;
-  button.disabled=true;
-  button.textContent="CONNECTING...";
-
+async function startSquareCheckout(){
+  if(!cart.length){ alert("カートに商品がありません。"); return; }
+  const section=document.getElementById("paymentSection");
+  const status=document.getElementById("payment-status");
+  section.style.display="block";
   try{
-    const returnUrl=window.location.href.split("?")[0];
-
-    const response=await fetch(STRIPE_CHECKOUT_ENDPOINT,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        cart:cart.map(item=>({
-          name:item.name,
-          size:item.size
-        })),
-        coupon:appliedCoupon,
-        returnUrl:returnUrl
-      })
-    });
-
-    const data=await response.json();
-
-    if(!response.ok || !data.url){
-      throw new Error(data.error || "Stripe Checkoutの作成に失敗しました。");
-    }
-
-    window.location.href=data.url;
-  }catch(error){
-    console.error(error);
-    alert(error.message || "決済ページを開けませんでした。");
-    button.disabled=false;
-    button.textContent=originalText;
-  }
-}
-updateCart();
-</script>
-  <div id="paymentSection" style="display:none; margin:20px 0;">
-  <h3>お支払い</h3>
-
-  <div id="card-container"></div>
-
-  <button id="card-button" type="button">
-    支払う
-  </button>
-
-  <div id="payment-status"></div>
-</div>
-  <script>
-async function startSquareCheckout() {
-  if (!cart.length) {
-    alert("カートに商品がありません。");
-    return;
-  }
-
-  const paymentSection = document.getElementById("paymentSection");
-  paymentSection.style.display = "block";
-
-  try {
-    const payments = Square.payments(
-      SQUARE_APPLICATION_ID,
-      SQUARE_LOCATION_ID
-    );
-
-    const card = await payments.card();
-
-    await card.attach("#card-container");
-
-    document.getElementById("card-button").onclick = async () => {
-      const status = document.getElementById("payment-status");
-
-      try {
-        status.textContent = "決済処理中です...";
-
-        const result = await card.tokenize();
-
-        if (result.status !== "OK") {
-          console.error(result);
-          status.textContent = "カード情報を確認してください。";
-          return;
-        }
-
-        const sourceId = result.token;
-
-        const subtotal = cart.reduce(
-          (sum, item) => sum + item.price,
-          0
-        );
-
-        const shipping = cart.length ? 1000 : 0;
-        const total = subtotal + shipping;
-
-        const response = await fetch("/api/create-payment", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            sourceId: sourceId,
-            amount: total
-          })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          console.error(data);
-          status.textContent = "決済に失敗しました。";
-          return;
-        }
-
-        status.textContent = "決済が完了しました！";
-
-        localStorage.removeItem("schonCart");
-        cart = [];
-        updateCart();
-
-      } catch (error) {
-        console.error(error);
-        status.textContent = "決済中にエラーが発生しました。";
+    if(!squareCardReady){
+      if(!squareInitPromise){
+        squareInitPromise=(async()=>{
+          if(!window.Square) throw new Error("Square SDKが読み込まれていません。");
+          const payments=Square.payments(SQUARE_APPLICATION_ID,SQUARE_LOCATION_ID);
+          squareCard=await payments.card();
+          await squareCard.attach("#card-container");
+          squareCardReady=true;
+        })();
       }
-    };
-
-  } catch (error) {
-    console.error(error);
-    document.getElementById("payment-status").textContent =
-      "決済画面の読み込みに失敗しました。";
+      await squareInitPromise;
+    }
+    section.scrollIntoView({behavior:"smooth",block:"center"});
+  }catch(error){
+    console.error("Square initialization:",error);
+    status.textContent="カード画面を読み込めませんでした。ページを再読み込みしてください。";
+    squareInitPromise=null;
   }
 }
+
+async function payWithSquare(){
+  const status=document.getElementById("payment-status");
+  const button=document.getElementById("card-button");
+  if(!squareCardReady || !squareCard){ status.textContent="先にCHECKOUTを押してカード画面を表示してください。"; return; }
+  if(!cart.length){ status.textContent="カートに商品がありません。"; return; }
+  button.disabled=true; status.textContent="決済処理中です...";
+  try{
+    const result=await squareCard.tokenize();
+    if(result.status!=="OK"){ console.error("Tokenize:",result); status.textContent="カード情報を確認してください。"; return; }
+    const subtotal=cart.reduce((sum,item)=>sum+Number(item.price||0),0);
+    const shipping=cart.length?(appliedCoupon===FREE_SHIPPING_COUPON?0:NORMAL_SHIPPING):0;
+    const response=await fetch("/api/create-payment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sourceId:result.token,amount:subtotal+shipping})});
+    const data=await response.json().catch(()=>({error:"サーバーからJSON応答がありません"}));
+    console.log("Payment API:",data);
+    if(!response.ok){ throw new Error(typeof data.error==="string"?data.error:JSON.stringify(data.error||data)); }
+    status.textContent="決済が完了しました！ご注文ありがとうございます。";
+    localStorage.removeItem("schonCart"); cart=[]; appliedCoupon=""; updateCart();
+  }catch(error){ console.error("Payment error:",error); status.textContent="決済失敗："+(error.message||"詳細はConsoleを確認してください。"); }
+  finally{ button.disabled=false; }
+}
+
+document.getElementById("card-button")?.addEventListener("click",payWithSquare);
+updateCart();
 </script>
 </body>
 </html>
