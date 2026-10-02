@@ -651,6 +651,12 @@ async function payWithSquare(){
       </div>`).join("");
     const totalAmount = Number(order.amount || subtotal + shipping);
     const paymentSection = document.getElementById("paymentSection");
+    if(!paymentSection){
+      status.textContent="決済が完了しました！ご注文ありがとうございます。";
+      localStorage.removeItem("schonCart"); cart=[]; appliedCoupon=""; updateCart();
+      return;
+    }
+    paymentSection.style.display = "block";
     paymentSection.innerHTML = `
       <div class="max-w-xl mx-auto bg-white rounded-3xl shadow-xl border border-slate-100 p-6 sm:p-10 text-center">
         <div class="w-16 h-16 mx-auto mb-5 rounded-full bg-green-100 flex items-center justify-center"><i class="fa-solid fa-check text-3xl text-green-600"></i></div>
